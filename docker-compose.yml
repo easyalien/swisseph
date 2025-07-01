@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # Swiss Ephemeris API
+  api:
+    build:
+      context: .
+      target: production
+    container_name: swiss-ephemeris-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      - LOG_LEVEL=info
+      - CACHE_MAX_SIZE=1000
+      - CACHE_TTL=3600000
+      - RATE_LIMIT_RPM=100
+    volumes:
+      - api-logs:/app/logs
+    networks:
+      - ephemeris-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis cache (for Phase 2)
+  redis:
+    image: redis:7-alpine
+    container_name: swiss-ephemeris-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - ephemeris-network
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    profiles:
+      - phase2
+
+  # Nginx reverse proxy (for Phase 2)
+  nginx:
+    image: nginx:alpine
+    container_name: swiss-ephemeris-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    networks:
+      - ephemeris-network
+    depends_on:
+      - api
+    profiles:
+      - phase2
+
+volumes:
+  api-logs:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  ephemeris-network:
+    driver: bridge

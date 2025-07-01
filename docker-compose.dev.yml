@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # Development API with hot reload
+  api-dev:
+    build:
+      context: .
+      target: development
+    container_name: swiss-ephemeris-api-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - HOST=0.0.0.0
+      - LOG_LEVEL=debug
+      - CACHE_MAX_SIZE=100
+      - CACHE_TTL=300000
+    volumes:
+      - ./api:/app
+      - /app/node_modules  # Anonymous volume to prevent overwriting
+      - api-dev-logs:/app/logs
+    networks:
+      - ephemeris-dev-network
+    stdin_open: true
+    tty: true
+
+  # Test database for development (optional)
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: swiss-ephemeris-postgres-dev
+    environment:
+      - POSTGRES_DB=ephemeris_dev
+      - POSTGRES_USER=apiuser
+      - POSTGRES_PASSWORD=devpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    networks:
+      - ephemeris-dev-network
+    profiles:
+      - database
+
+volumes:
+  api-dev-logs:
+    driver: local
+  postgres-dev-data:
+    driver: local
+
+networks:
+  ephemeris-dev-network:
+    driver: bridge
