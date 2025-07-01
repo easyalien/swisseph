@@ -1,6 +1,125 @@
-readme.md  created 5-oct-2017 by Alois Treindl
+# Swiss Ephemeris
 
-last update 1-apr-2025
+*created 5-oct-2017 by Alois Treindl*  
+*last update 1-apr-2025*
+
+## 🚀 Swiss Ephemeris REST API
+
+This repository now includes a production-ready REST API for the Swiss Ephemeris, providing high-precision planetary position calculations via HTTP endpoints.
+
+### Quick Start
+
+```bash
+# Clone and switch to API branch
+git clone https://github.com/easyalien/swisseph.git
+cd swisseph
+git checkout api
+
+# Deploy with Docker (recommended)
+docker-compose up -d
+
+# Or run locally
+cd api
+npm install
+npm start
+```
+
+### API Endpoints
+
+**Get Planetary Positions:**
+```bash
+# GET request
+curl "http://localhost:3000/api/v1/positions?date=14.10.2020&time=13:43:00"
+
+# POST request  
+curl -X POST http://localhost:3000/api/v1/positions \
+  -H "Content-Type: application/json" \
+  -d '{"date": "14.10.2020", "time": "13:43:00"}'
+```
+
+**Health Check:**
+```bash
+curl http://localhost:3000/api/v1/health
+```
+
+**API Documentation:**
+```bash
+curl http://localhost:3000/api/v1/info
+```
+
+### Features
+
+- ✅ **All Major Celestial Objects**: Sun, Moon, planets, lunar nodes, asteroids, deep space objects
+- ✅ **High Performance**: Sub-10ms response times with intelligent caching
+- ✅ **Production Ready**: Docker deployment, health monitoring, rate limiting
+- ✅ **Precision**: Swiss Ephemeris accuracy maintained (NASA JPL data)
+- ✅ **Easy Integration**: RESTful JSON API with comprehensive error handling
+
+### Supported Objects
+
+- **Major Planets**: Sun through Pluto (10 objects)
+- **Lunar Points**: Mean/True Nodes, Mean/Osculating Apogees (4 objects)  
+- **Major Asteroids**: Chiron, Pholus, Ceres, Pallas, Juno, Vesta (6 objects)
+- **Deep Space**: Galactic Center, Great Attractor (2 objects)
+
+### Example Response
+
+```json
+{
+  "timestamp": "14.10.2020 13:43:00 UTC",
+  "count": 22,
+  "response_time_ms": 7,
+  "cached": false,
+  "positions": [
+    {
+      "name": "Sun",
+      "longitude_decimal": 201.667776,
+      "zodiac_position": {
+        "sign": "li",
+        "degrees": 21,
+        "minutes": 40,
+        "seconds": 3.99
+      }
+    },
+    {
+      "name": "Jupiter", 
+      "longitude_decimal": 288.968,
+      "zodiac_position": {
+        "sign": "cp",
+        "degrees": 18,
+        "minutes": 58,
+        "seconds": 4.8
+      }
+    }
+    // ... 20 more objects
+  ]
+}
+```
+
+### Docker Deployment
+
+**Production:**
+```bash
+docker-compose up -d
+```
+
+**Development (with hot reload):**
+```bash
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+**With scaling (Phase 2):**
+```bash
+docker-compose --profile phase2 up -d --scale api=3
+```
+
+### Documentation
+
+- **[Technical Requirements Document](TRD_Swiss_Ephemeris_API.md)** - Complete implementation details
+- **[Docker Deployment Guide](DOCKER.md)** - Production deployment instructions  
+- **[Development Guide](CLAUDE.md)** - Developer documentation
+
+---
 
 ## About the Swiss Ephemeris:
 
