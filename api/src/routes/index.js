@@ -1,6 +1,7 @@
 const express = require('express');
 const positionsController = require('../controllers/positionsController');
 const healthController = require('../controllers/healthController');
+const aspectsController = require('../controllers/aspectsController');
 
 const router = express.Router();
 
@@ -38,6 +39,33 @@ router.get('/info', (req, res) => {
             description: 'Time in UTC'
           }
         }
+      },
+      '/aspects': {
+        methods: ['GET', 'POST'],
+        description: 'Find exact planetary aspects for every second of a given day',
+        warning: 'This endpoint is computationally intensive and may take several minutes to complete',
+        parameters: {
+          date: {
+            required: true,
+            format: 'DD.MM.YYYY',
+            example: '14.10.2020',
+            description: 'Date to analyze for aspects'
+          }
+        },
+        aspects_detected: [
+          'conjunction (0°)',
+          'semisextile (30°)',
+          'semisquare (45°)',
+          'sextile (60°)',
+          'quintile (72°)',
+          'square (90°)',
+          'trine (120°)',
+          'sesquiquadrate (135°)',
+          'biquintile (144°)',
+          'quincunx (150°)',
+          'opposition (180°)'
+        ],
+        tolerance: '0.1 degrees for exact aspects'
       }
     },
     supported_objects: [
@@ -88,5 +116,9 @@ router.get('/info', (req, res) => {
 // Planetary positions endpoints
 router.get('/positions', positionsController.getPositions);
 router.post('/positions', positionsController.getPositions);
+
+// Planetary aspects endpoints
+router.get('/aspects', aspectsController.getExactAspects);
+router.post('/aspects', aspectsController.getExactAspects);
 
 module.exports = router;

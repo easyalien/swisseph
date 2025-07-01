@@ -34,8 +34,14 @@ class CacheManager {
   /**
    * Get cached positions
    */
-  get(date, time) {
-    const key = this.generateKey(date, time);
+  get(dateOrKey, time) {
+    let key;
+    if (time !== undefined) {
+      key = this.generateKey(dateOrKey, time);
+    } else {
+      key = dateOrKey; // Direct key provided
+    }
+    
     const value = this.cache.get(key);
     
     if (value) {
@@ -52,12 +58,21 @@ class CacheManager {
   /**
    * Set cached positions
    */
-  set(date, time, positions) {
-    const key = this.generateKey(date, time);
+  set(dateOrKey, timeOrData, positions) {
+    let key, data;
+    if (positions !== undefined) {
+      // Three parameters: date, time, positions
+      key = this.generateKey(dateOrKey, timeOrData);
+      data = positions;
+    } else {
+      // Two parameters: key, data
+      key = dateOrKey;
+      data = timeOrData;
+    }
     
     // Add cache metadata
     const cacheValue = {
-      ...positions,
+      ...data,
       cached_at: new Date().toISOString(),
       cache_ttl_ms: config.cache.ttl
     };
@@ -77,8 +92,14 @@ class CacheManager {
   /**
    * Delete cached entry
    */
-  delete(date, time) {
-    const key = this.generateKey(date, time);
+  delete(dateOrKey, time) {
+    let key;
+    if (time !== undefined) {
+      key = this.generateKey(dateOrKey, time);
+    } else {
+      key = dateOrKey; // Direct key provided
+    }
+    
     const deleted = this.cache.delete(key);
     
     if (deleted) {

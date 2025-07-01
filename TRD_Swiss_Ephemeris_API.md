@@ -51,6 +51,7 @@ The Swiss Ephemeris API Service provides high-precision planetary position calcu
 
 #### 3.1.1 Core API Endpoints
 - `GET /api/v1/positions` - Get planetary positions for date/time
+- `GET /api/v1/aspects` - Find exact planetary aspects for a given day
 - `GET /api/v1/health` - Health check endpoint
 - `GET /api/v1/info` - API documentation and capabilities
 
@@ -84,6 +85,69 @@ The Swiss Ephemeris API Service provides high-precision planetary position calcu
   ]
 }
 ```
+
+#### 3.1.5 Aspects Endpoint (`/api/v1/aspects`)
+
+The aspects endpoint analyzes planetary relationships for exact angular aspects throughout a given day.
+
+**Input Parameters:**
+- **Date:** DD.MM.YYYY format (e.g., 14.10.2020)
+
+**Supported Aspects:**
+- Conjunction (0°)
+- Semisextile (30°)
+- Semisquare (45°)
+- Sextile (60°)
+- Quintile (72°)
+- Square (90°)
+- Trine (120°)
+- Sesquiquadrate (135°)
+- Biquintile (144°)
+- Quincunx (150°)
+- Opposition (180°)
+
+**Output Format:**
+```json
+{
+  "date": "14.10.2020",
+  "total_aspects": 15,
+  "calculation_time_ms": 45000,
+  "aspects": [
+    {
+      "time": "09:23:50",
+      "planet1": "Mars",
+      "planet2": "Jupiter",
+      "aspect": "square",
+      "angle": 90,
+      "actual_angle": 89.967,
+      "planet1_position": {
+        "longitude_decimal": 23.456,
+        "zodiac_position": {
+          "sign": "ar",
+          "degrees": 23,
+          "minutes": 27,
+          "seconds": 21.6
+        }
+      },
+      "planet2_position": {
+        "longitude_decimal": 113.423,
+        "zodiac_position": {
+          "sign": "cn",
+          "degrees": 23,
+          "minutes": 25,
+          "seconds": 22.8
+        }
+      }
+    }
+  ]
+}
+```
+
+**Performance Characteristics:**
+- Tolerance: 0.1 degrees for "exact" aspects
+- Temporal resolution: 10-second intervals (optimized for performance)
+- Calculation time: 30-120 seconds depending on planetary activity
+- Cached results: Subsequent requests return instantly from cache
 
 ### 3.2 Non-Functional Requirements (Phase 1)
 - **Performance:** < 200ms response time (95th percentile)
@@ -321,7 +385,7 @@ services:
 ### 12.1 Additional Features
 - Sidereal/tropical zodiac options
 - House calculations with coordinates
-- Aspect calculations between planets
+- ✅ Aspect calculations between planets (COMPLETED)
 - Historical ephemeris data (bulk queries)
 - WebSocket support for real-time updates
 
@@ -338,8 +402,9 @@ services:
 ### 13.1 Phase 1 MVP - ✅ COMPLETED (January 2025)
 
 **✅ Implemented Features:**
-- ✅ REST API with GET/POST endpoints (`/api/v1/positions`, `/api/v1/health`, `/api/v1/info`)
+- ✅ REST API with GET/POST endpoints (`/api/v1/positions`, `/api/v1/aspects`, `/api/v1/health`, `/api/v1/info`)
 - ✅ All 22 celestial objects supported (planets, nodes, asteroids, deep space objects)
+- ✅ Comprehensive aspect analysis with 11 aspect types (conjunction through opposition)
 - ✅ Input validation and comprehensive error handling
 - ✅ LRU caching with dramatic performance improvement (11ms → 0ms for cached responses)
 - ✅ Logging and request monitoring with Winston
@@ -408,6 +473,9 @@ curl http://localhost:3000/api/v1/health
 
 # Get planetary positions
 curl "http://localhost:3000/api/v1/positions?date=01.01.2025&time=12:00:00"
+
+# Get planetary aspects for a day
+curl "http://localhost:3000/api/v1/aspects?date=01.01.2025"
 ```
 
 ### 14.2 File Structure

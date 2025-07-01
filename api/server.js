@@ -67,15 +67,27 @@ app.get('/', (req, res) => {
         url: '/api/v1/positions',
         methods: ['GET', 'POST'],
         description: 'Get planetary positions for specified date/time'
+      },
+      aspects: {
+        url: '/api/v1/aspects',
+        methods: ['GET', 'POST'],
+        description: 'Find exact planetary aspects for every second of a given day'
       }
     },
     examples: {
-      get: '/api/v1/positions?date=14.10.2020&time=13:43:00',
-      post: {
+      positions_get: '/api/v1/positions?date=14.10.2020&time=13:43:00',
+      positions_post: {
         url: '/api/v1/positions',
         body: {
           date: '14.10.2020',
           time: '13:43:00'
+        }
+      },
+      aspects_get: '/api/v1/aspects?date=14.10.2020',
+      aspects_post: {
+        url: '/api/v1/aspects',
+        body: {
+          date: '14.10.2020'
         }
       }
     }

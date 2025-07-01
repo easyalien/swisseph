@@ -42,6 +42,17 @@ curl -X POST http://localhost:3000/api/v1/positions \
 curl http://localhost:3000/api/v1/health
 ```
 
+**Get Planetary Aspects:**
+```bash
+# Find exact planetary aspects for a full day
+curl "http://localhost:3000/api/v1/aspects?date=14.10.2020"
+
+# POST request
+curl -X POST http://localhost:3000/api/v1/aspects \
+  -H "Content-Type: application/json" \
+  -d '{"date": "14.10.2020"}'
+```
+
 **API Documentation:**
 ```bash
 curl http://localhost:3000/api/v1/info
@@ -50,6 +61,7 @@ curl http://localhost:3000/api/v1/info
 ### Features
 
 - ✅ **All Major Celestial Objects**: Sun, Moon, planets, lunar nodes, asteroids, deep space objects
+- ✅ **Planetary Aspects**: Comprehensive aspect analysis with 11 aspect types (conjunction through opposition)
 - ✅ **High Performance**: Sub-10ms response times with intelligent caching
 - ✅ **Production Ready**: Docker deployment, health monitoring, rate limiting
 - ✅ **Precision**: Swiss Ephemeris accuracy maintained (NASA JPL data)
@@ -95,6 +107,54 @@ curl http://localhost:3000/api/v1/info
   ]
 }
 ```
+
+### Aspects Endpoint Response
+
+```json
+{
+  "date": "14.10.2020",
+  "total_aspects": 15,
+  "calculation_time_ms": 45000,
+  "response_time_ms": 45023,
+  "cached": false,
+  "aspects": [
+    {
+      "time": "09:23:50",
+      "planet1": "Mars",
+      "planet2": "Jupiter",
+      "aspect": "square", 
+      "angle": 90,
+      "actual_angle": 89.967,
+      "planet1_position": {
+        "longitude_decimal": 23.456,
+        "zodiac_position": {
+          "sign": "ar",
+          "degrees": 23,
+          "minutes": 27,
+          "seconds": 21.6
+        }
+      },
+      "planet2_position": {
+        "longitude_decimal": 113.423,
+        "zodiac_position": {
+          "sign": "cn", 
+          "degrees": 23,
+          "minutes": 25,
+          "seconds": 22.8
+        }
+      }
+    }
+    // ... more aspects throughout the day
+  ]
+}
+```
+
+**Supported Aspects:**
+- Conjunction (0°), Semisextile (30°), Semisquare (45°), Sextile (60°)
+- Quintile (72°), Square (90°), Trine (120°), Sesquiquadrate (135°) 
+- Biquintile (144°), Quincunx (150°), Opposition (180°)
+
+**Performance Note:** The aspects endpoint analyzes 86,400 time points (every 10 seconds) throughout the day. Initial requests may take 30-120 seconds but are cached for instant subsequent responses.
 
 ### Docker Deployment
 
