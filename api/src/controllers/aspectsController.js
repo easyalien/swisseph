@@ -35,10 +35,10 @@ function calculateAngularDifference(long1, long2) {
 }
 
 /**
- * Check if an angular difference matches any aspect (within 0.1 degree tolerance for "exact")
+ * Check if an angular difference matches any aspect (within 0.01 degree tolerance for "exact")
  */
 function findMatchingAspect(angleDiff) {
-  const tolerance = 0.1; // 0.1 degree tolerance for "exact" aspects
+  const tolerance = 0.01; // 0.01 degree tolerance for exact aspects
   
   for (const [aspectName, aspectDegrees] of Object.entries(ASPECTS)) {
     if (Math.abs(angleDiff - aspectDegrees) <= tolerance) {
@@ -73,6 +73,88 @@ async function getPlanetPositionsForTime(service, dateStr, timeStr) {
     });
     return [];
   }
+}
+
+/**
+ * Deduplicate aspects by finding the most exact occurrence within consecutive series
+ */
+function deduplicateAspects(aspects) {
+  if (aspects.length === 0) return [];
+  
+  // Sort aspects by planet pair, aspect type, and time
+  const sorted = aspects.sort((a, b) => {
+    const pairA = `${a.planet1}-${a.planet2}-${a.aspect}`;
+    const pairB = `${b.planet1}-${b.planet2}-${b.aspect}`;
+    if (pairA !== pairB) return pairA.localeCompare(pairB);
+    return a.time.localeCompare(b.time);
+  });
+  
+  const deduplicated = [];
+  let currentGroup = [sorted[0]];
+  const maxGapMinutes = 30; // Maximum time gap to consider aspects as part of same series
+  
+  for (let i = 1; i < sorted.length; i++) {
+    const current = sorted[i];
+    const previous = sorted[i - 1];
+    
+    // Check if this aspect is part of the same series as the previous one
+    const sameAspect = current.planet1 === previous.planet1 && 
+                      current.planet2 === previous.planet2 && 
+                      current.aspect === previous.aspect;
+    
+    if (!sameAspect) {
+      // Different aspect - finalize previous group and start new one
+      deduplicated.push(findMostExactInGroup(currentGroup));
+      currentGroup = [current];
+    } else {
+      // Same aspect - check time gap
+      const timeGap = calculateTimeGapMinutes(previous.time, current.time);
+      
+      if (timeGap <= maxGapMinutes) {
+        // Part of same series
+        currentGroup.push(current);
+      } else {
+        // Time gap too large - finalize previous group and start new one
+        deduplicated.push(findMostExactInGroup(currentGroup));
+        currentGroup = [current];
+      }
+    }
+  }
+  
+  // Don't forget the last group
+  if (currentGroup.length > 0) {
+    deduplicated.push(findMostExactInGroup(currentGroup));
+  }
+  
+  // Sort by time for final output
+  return deduplicated.sort((a, b) => a.time.localeCompare(b.time));
+}
+
+/**
+ * Calculate time gap between two time strings in minutes
+ */
+function calculateTimeGapMinutes(time1, time2) {
+  const [h1, m1, s1] = time1.split(':').map(Number);
+  const [h2, m2, s2] = time2.split(':').map(Number);
+  
+  const seconds1 = h1 * 3600 + m1 * 60 + s1;
+  const seconds2 = h2 * 3600 + m2 * 60 + s2;
+  
+  return Math.abs(seconds2 - seconds1) / 60;
+}
+
+/**
+ * Find the most exact aspect in a group (closest to perfect aspect angle)
+ */
+function findMostExactInGroup(group) {
+  if (group.length === 1) return group[0];
+  
+  return group.reduce((mostExact, current) => {
+    const exactnessError = Math.abs(current.actual_angle - current.angle);
+    const currentBestError = Math.abs(mostExact.actual_angle - mostExact.angle);
+    
+    return exactnessError < currentBestError ? current : mostExact;
+  });
 }
 
 /**
@@ -182,13 +264,27 @@ const getExactAspects = async (req, res, next) => {
       }
     }
     
+    logger.info(`RAW ASPECTS FOUND: ${aspects.length}`);
+    
+    // Deduplicate aspects to find most exact occurrences
+    logger.info(`Before deduplication: ${aspects.length} aspects found`);
+    let deduplicatedAspects;
+    try {
+      deduplicatedAspects = deduplicateAspects(aspects);
+      logger.info(`After deduplication: ${deduplicatedAspects.length} aspects remaining`);
+    } catch (dedupError) {
+      logger.error('Deduplication failed, using raw aspects', { error: dedupError.message });
+      deduplicatedAspects = aspects;
+    }
+    
     const calculationTime = Date.now() - startTime;
     
     const result = {
       date,
-      total_aspects: aspects.length,
+      total_aspects: deduplicatedAspects.length,
+      raw_aspects_found: aspects.length,
       calculation_time_ms: calculationTime,
-      aspects: aspects.sort((a, b) => a.time.localeCompare(b.time))
+      aspects: deduplicatedAspects
     };
     
     // Cache the result
@@ -210,7 +306,9 @@ const getExactAspects = async (req, res, next) => {
     
     logger.info('Aspect calculation completed', {
       date,
-      total_aspects: aspects.length,
+      total_aspects: deduplicatedAspects.length,
+      raw_aspects_found: aspects.length,
+      deduplication_ratio: Math.round((1 - deduplicatedAspects.length / aspects.length) * 100),
       calculation_time_ms: calculationTime,
       response_time_ms: responseTime
     });

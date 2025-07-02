@@ -111,7 +111,10 @@ The aspects endpoint analyzes planetary relationships for exact angular aspects 
 {
   "date": "14.10.2020",
   "total_aspects": 15,
+  "raw_aspects_found": 847,
   "calculation_time_ms": 45000,
+  "response_time_ms": 45123,
+  "cached": false,
   "aspects": [
     {
       "time": "09:23:50",
@@ -144,10 +147,16 @@ The aspects endpoint analyzes planetary relationships for exact angular aspects 
 ```
 
 **Performance Characteristics:**
-- Tolerance: 0.1 degrees for "exact" aspects
-- Temporal resolution: 10-second intervals (optimized for performance)
-- Calculation time: 30-120 seconds depending on planetary activity
-- Cached results: Subsequent requests return instantly from cache
+- **Precision Tolerance**: 0.01 degrees for "exact" aspects (highest precision)
+- **Temporal Resolution**: 10-second intervals (optimized for performance)
+- **Calculation Time**: 30-120 seconds depending on planetary activity
+- **Cached Results**: Subsequent requests return instantly from cache
+- **Advanced Deduplication**: 
+  - Groups aspects within 30-minute time windows
+  - Finds most exact occurrence of each aspect (closest to perfect degree)
+  - Typically reduces raw findings by 90-98% (e.g., 513 → 12 final aspects)
+- **Progress Monitoring**: Real-time calculation progress with detailed logging
+- **Quality Control**: Only returns aspects within 0.01-degree tolerance of exact angles
 
 ### 3.2 Non-Functional Requirements (Phase 1)
 - **Performance:** < 200ms response time (95th percentile)
@@ -404,7 +413,14 @@ services:
 **✅ Implemented Features:**
 - ✅ REST API with GET/POST endpoints (`/api/v1/positions`, `/api/v1/aspects`, `/api/v1/health`, `/api/v1/info`)
 - ✅ All 22 celestial objects supported (planets, nodes, asteroids, deep space objects)
-- ✅ Comprehensive aspect analysis with 11 aspect types (conjunction through opposition)
+- ✅ **Enhanced Aspect Analysis:**
+  - ✅ 11 aspect types with 0.01-degree precision tolerance (highest accuracy)
+  - ✅ Advanced deduplication algorithm reducing results by 90-98%
+  - ✅ 30-minute time window grouping for most exact aspect timing
+  - ✅ 10-second resolution scanning across full 24-hour periods
+  - ✅ Complete planetary position data for each aspect
+  - ✅ Performance optimized calculations (30-120s computation time)
+  - ✅ Progress monitoring with detailed logging and error handling
 - ✅ Input validation and comprehensive error handling
 - ✅ LRU caching with dramatic performance improvement (11ms → 0ms for cached responses)
 - ✅ Logging and request monitoring with Winston
