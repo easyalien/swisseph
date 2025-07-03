@@ -65,3 +65,8 @@ planetary_positions_*.txt
 
 # Development artifacts
 *.orig
+
+# Miscellaneous
+*.csv
+*.py
+*ASPECTS*.md 
