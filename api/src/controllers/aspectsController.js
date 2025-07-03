@@ -78,7 +78,7 @@ async function getPlanetPositionsForTime(service, dateStr, timeStr) {
 /**
  * Deduplicate aspects by finding the most exact occurrence within consecutive series
  */
-function deduplicateAspects(aspects) {
+async function deduplicateAspects(aspects, service, dateStr) {
   if (aspects.length === 0) return [];
   
   // Sort aspects by planet pair, aspect type, and time
@@ -104,7 +104,7 @@ function deduplicateAspects(aspects) {
     
     if (!sameAspect) {
       // Different aspect - finalize previous group and start new one
-      deduplicated.push(findMostExactInGroup(currentGroup));
+      deduplicated.push(await findMostExactInGroup(currentGroup, service, dateStr));
       currentGroup = [current];
     } else {
       // Same aspect - check time gap
@@ -115,7 +115,7 @@ function deduplicateAspects(aspects) {
         currentGroup.push(current);
       } else {
         // Time gap too large - finalize previous group and start new one
-        deduplicated.push(findMostExactInGroup(currentGroup));
+        deduplicated.push(await findMostExactInGroup(currentGroup, service, dateStr));
         currentGroup = [current];
       }
     }
@@ -123,7 +123,7 @@ function deduplicateAspects(aspects) {
   
   // Don't forget the last group
   if (currentGroup.length > 0) {
-    deduplicated.push(findMostExactInGroup(currentGroup));
+    deduplicated.push(await findMostExactInGroup(currentGroup, service, dateStr));
   }
   
   // Sort by time for final output
@@ -145,16 +145,107 @@ function calculateTimeGapMinutes(time1, time2) {
 
 /**
  * Find the most exact aspect in a group (closest to perfect aspect angle)
+ * Then refine it to find the exact moment
  */
-function findMostExactInGroup(group) {
-  if (group.length === 1) return group[0];
+async function findMostExactInGroup(group, service, dateStr) {
+  if (group.length === 1) {
+    // Refine the single aspect to find exact timing
+    const aspect = group[0];
+    const refined = await refineAspectTiming(
+      service, 
+      dateStr, 
+      aspect.time, 
+      aspect.planet1, 
+      aspect.planet2, 
+      aspect.aspect, 
+      aspect.angle
+    );
+    return refined || aspect;
+  }
   
-  return group.reduce((mostExact, current) => {
+  const mostExact = group.reduce((mostExact, current) => {
     const exactnessError = Math.abs(current.actual_angle - current.angle);
     const currentBestError = Math.abs(mostExact.actual_angle - mostExact.angle);
     
     return exactnessError < currentBestError ? current : mostExact;
   });
+  
+  // Refine the most exact aspect to find the precise moment
+  const refined = await refineAspectTiming(
+    service,
+    dateStr,
+    mostExact.time,
+    mostExact.planet1,
+    mostExact.planet2,
+    mostExact.aspect,
+    mostExact.angle
+  );
+  
+  return refined || mostExact;
+}
+
+/**
+ * Refine aspect timing by searching around a found aspect at 1-second intervals
+ * to find the moment when the aspect is most exact
+ */
+async function refineAspectTiming(service, dateStr, approximateTimeStr, planet1Name, planet2Name, aspectType, aspectDegrees) {
+  const [hours, minutes, seconds] = approximateTimeStr.split(':').map(Number);
+  const approximateTimeSeconds = hours * 3600 + minutes * 60 + seconds;
+  
+  // Search ±5 minutes around the approximate time at 1-second intervals
+  const searchRangeSeconds = 5 * 60; // 5 minutes
+  const startTimeSeconds = Math.max(0, approximateTimeSeconds - searchRangeSeconds);
+  const endTimeSeconds = Math.min(86399, approximateTimeSeconds + searchRangeSeconds); // 86399 = 23:59:59
+  
+  let mostExactAspect = null;
+  let smallestError = Infinity;
+  
+  for (let timeSeconds = startTimeSeconds; timeSeconds <= endTimeSeconds; timeSeconds++) {
+    const h = Math.floor(timeSeconds / 3600);
+    const m = Math.floor((timeSeconds % 3600) / 60);
+    const s = timeSeconds % 60;
+    const timeStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    
+    try {
+      const positions = await getPlanetPositionsForTime(service, dateStr, timeStr);
+      if (positions.length < 2) continue;
+      
+      // Find the two planets we're refining
+      const planet1 = positions.find(p => p.name === planet1Name);
+      const planet2 = positions.find(p => p.name === planet2Name);
+      
+      if (!planet1 || !planet2) continue;
+      
+      const angleDiff = calculateAngularDifference(planet1.longitude_decimal, planet2.longitude_decimal);
+      const error = Math.abs(angleDiff - aspectDegrees);
+      
+      if (error < smallestError) {
+        smallestError = error;
+        mostExactAspect = {
+          time: timeStr,
+          planet1: planet1.name,
+          planet2: planet2.name,
+          aspect: aspectType,
+          angle: aspectDegrees,
+          actual_angle: Math.round(angleDiff * 10000) / 10000, // 4 decimal places for precision
+          precision_error: Math.round(error * 10000) / 10000,
+          planet1_position: {
+            longitude_decimal: planet1.longitude_decimal,
+            zodiac_position: planet1.zodiac_position
+          },
+          planet2_position: {
+            longitude_decimal: planet2.longitude_decimal,
+            zodiac_position: planet2.zodiac_position
+          }
+        };
+      }
+    } catch (error) {
+      // Skip this time point if there's an error
+      continue;
+    }
+  }
+  
+  return mostExactAspect;
 }
 
 /**
@@ -266,12 +357,13 @@ const getExactAspects = async (req, res, next) => {
     
     logger.info(`RAW ASPECTS FOUND: ${aspects.length}`);
     
-    // Deduplicate aspects to find most exact occurrences
+    // Deduplicate aspects to find most exact occurrences with 1-second precision refinement
     logger.info(`Before deduplication: ${aspects.length} aspects found`);
     let deduplicatedAspects;
     try {
-      deduplicatedAspects = deduplicateAspects(aspects);
-      logger.info(`After deduplication: ${deduplicatedAspects.length} aspects remaining`);
+      logger.info('Starting precise timing refinement for each aspect...');
+      deduplicatedAspects = await deduplicateAspects(aspects, swissEphemerisService, date);
+      logger.info(`After deduplication and refinement: ${deduplicatedAspects.length} aspects remaining`);
     } catch (dedupError) {
       logger.error('Deduplication failed, using raw aspects', { error: dedupError.message });
       deduplicatedAspects = aspects;
